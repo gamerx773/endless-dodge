@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Endless Dodge</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      -webkit-user-select: none;
+      user-select: none;
+      touch-action: none;
+    }
+    body {
+      margin: 0;
+      background: #111;
+      color: #fff;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+    #container {
+      position: relative;
+      width: 640px;
+      max-width: 100vw;
+      height: 360px;
+      max-height: 100vh;
+      overflow: hidden;
+      border: 2px solid #444;
+      background: #000;
+    }
+    canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      background: #000;
+    }
+
+    /* Start screen */
+    #startScreen {
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at top, #222 0, #000 60%);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      gap: 16px;
+      z-index: 5;
+    }
+    #title {
+      font-size: 32px;
+      font-weight: 700;
+      text-shadow: 0 0 10px #0af;
+    }
+    #playButton {
+      padding: 10px 30px;
+      font-size: 20px;
+      border-radius: 8px;
+      border: none;
+      background: linear-gradient(135deg, #0af, #07f);
+      color: #fff;
+      cursor: pointer;
+      box-shadow: 0 0 12px rgba(0, 160, 255, 0.7);
+    }
+    #playButton:active {
+      transform: scale(0.97);
+      box-shadow: 0 0 6px rgba(0, 160, 255, 0.9);
+    }
+    #infoBox {
+      background: rgba(0, 0, 0, 0.6);
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 14px;
+      text-align: left;
+      max-width: 90%;
+    }
+
+    /* HUD */
+    #hud {
+      position: absolute;
+      top: 6px;
+      left: 6px;
+      right: 6px;
+      display: flex;
+      justify-content: space-between;
+      font-size: 14px;
+      text-shadow: 1px 1px 2px #000;
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    /* Center message */
+    #centerMessage {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-size: 22px;
+      text-align: center;
+      text-shadow: 2px 2px 4px #000;
+      pointer-events: none;
+      white-space: pre-line;
+      z-index: 2;
+    }
+
+    /* Mobile controls */
+    #mobileControls {
+      position: absolute;
+      inset: 0;
+      display: none; /* shown on touch devices */
+      z-index: 3;
+      pointer-events: none;
+    }
+
+    /* Joystick fixed bottom-left */
+    #joystickArea {
+      position: absolute;
+      left: 0;
+      bottom: 0;
+      width: 50%;
+      height: 60%;
+      pointer-events: auto;
+    }
+    #joystickBase {
+      position: absolute;
+      left: 80px;   /* fixed pos inside game container */
+      bottom: 80px;
+      width: 140px;
+      height: 140px;
+      border-radius: 50%;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      background: rgba(255, 255, 255, 0.04);
+      transform: translate(-50%, 50%);
+    }
+    #joystickStick {
+      position: absolute;
+      width: 70px;
+      height: 70px;
+      border-radius: 50%;
+      background: rgba(0, 170, 255, 0.9);
+      left: 80px;
+      bottom: 80px;
+      transform: translate(-50%, 50%);
+    }
+
+    /* Dash button bottom-right */
+    #dashButton {
+      position: absolute;
+      right: 70px;
+      bottom: 90px;
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 30% 30%, #fff, #0f0);
+      opacity: 0.7;
+      pointer-events: auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      color: #020;
+      font-weight: 700;
+      box-shadow: 0 0 12px rgba(0, 255, 0, 0.8);
+    }
+    #dashButton:active {
+      transform: scale(0.95);
+      opacity: 1;
+      box-shadow: 0 0 18px rgba(0, 255, 0, 1);
+    }
+
+    @media (max-width: 700px) {
+      #container {
+        width: 100vw;
+        height: 100vh;
+        border-radius: 0;
+      }
+      #title {
+        font-size: 26px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="container">
+    <canvas id="game" width="640" height="360"></canvas>
+
+    <!-- Start screen -->
+    <div id="startScreen">
+      <div id="title">Endless Dodge</div>
+      <button id="playButton">Play</button>
+      <div id="infoBox">
+        <div><strong>Personal Best:</strong> <span id="bestScoreStart">0.0</span> s</div>
+        <div style="margin-top:4px;">
+          <strong>Controls</strong><br />
+          PC: WASD or Arrow Keys<br />
+          Mobile: Drag the blue joystick on the left, tap green circle to dash
+        </div>
+      </div>
+    </div>
+
+    <!-- HUD -->
+    <div id="hud">
+      <div>Score: <span id="score">0.0</span> s</div>
+      <div>Personal Best: <span id="bestScore">0.0</span> s</div>
+    </div>
+
+    <!-- Game over text -->
+    <div id="centerMessage"></div>
+
+    <!-- Mobile controls -->
+    <div id="mobileControls">
+      <div id="joystickArea">
+        <div id="joystickBase"></div>
+        <div id="joystickStick"></div>
+      </div>
+      <div id="dashButton">Dash</div>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+    const scoreEl = document.getElementById('score');
+    const bestScoreEl = document.getElementById('bestScore');
+    const bestScoreStartEl = document.getElementById('bestScoreStart');
+    const startScreen = document.getElementById('startScreen');
+    const playButton = document.getElementById('playButton');
+    const centerMessage = document.getElementById('centerMessage');
+
+    const mobileControls = document.getElementById('mobileControls');
+    const joystickArea = document.getElementById('joystickArea');
+    const joystickBase = document.getElementById('joystickBase');
+    const joystickStick = document.getElementById('joystickStick');
+    const dashButton = document.getElementById('dashButton');
+
+    const W = canvas.width;
+    const H = canvas.height;
+
+    // Game state
+    const player = {
+      x: W / 2,
+      y: H / 2,
+      radius: 12,
+      baseSpeed: 220,
+      color: '#4af',
+      dashMultiplier: 2.0,
+      dashDuration: 0.15,
+      dashCooldown: 1.0,
+      dashTimeLeft: 0,
+      dashCooldownLeft: 0
+    };
+
+    const keys = {
+      ArrowUp: false,
+      ArrowDown: false,
+      ArrowLeft: false,
+      ArrowRight: false,
+      w: false,
+      a: false,
+      s: false,
+      d: false
+    };
+
+    let enemies = [];
+    let running = false;
+    let gameOver = false;
+    let lastTime = performance.now();
+    let timeAlive = 0;
+    let spawnTimer = 0;
+    let spawnInterval = 1.0;
+
+    // Personal best
+    const BEST_KEY = 'endless_dodge_best';
+    let bestScore = 0;
+    try {
+      const stored = localStorage.getItem(BEST_KEY);
+      if (stored) bestScore = parseFloat(stored) || 0;
+    } catch {}
+    bestScoreEl.textContent = bestScore.toFixed(1);
+    bestScoreStartEl.textContent = bestScore.toFixed(1);
+
+    // Keyboard
+    window.addEventListener('keydown', e => {
+      if (e.key in keys) keys[e.key] = true;
+      if (gameOver) startGame();
+    });
+    window.addEventListener('keyup', e => {
+      if (e.key in keys) keys[e.key] = false;
+    });
+
+    // Touch check
+    function isTouchDevice() {
+      return (
+        'ontouchstart' in window ||
+        navigator.maxTouchPoints > 0 ||
+        navigator.msMaxTouchPoints > 0
+      );
+    }
+    if (isTouchDevice()) {
+      mobileControls.style.display = 'block';
+    }
+
+    // Joystick logic
+    const JS_MAX = 60; // radius in px (canvas space mapped)
+    let joystickVector = { x: 0, y: 0 };
+    let joystickTouchId = null;
+
+    function resetStickVisual() {
+      joystickStick.style.left = '80px';
+      joystickStick.style.bottom = '80px';
+    }
+    resetStickVisual();
+
+    function handleJoyStart(touch) {
+      joystickTouchId = touch.identifier;
+    }
+
+    function handleJoyMove(touch) {
+      if (joystickTouchId !== touch.identifier) return;
+
+      const containerRect = document.getElementById('container').getBoundingClientRect();
+      const baseCenterCanvasX = 80;
+      const baseCenterCanvasY = H - 80;
+
+      const xCanvas = ((touch.clientX - containerRect.left) / containerRect.width) * W;
+      const yCanvas = ((touch.clientY - containerRect.top) / containerRect.height) * H;
+
+      let dx = xCanvas - baseCenterCanvasX;
+      let dy = yCanvas - baseCenterCanvasY;
+      const dist = Math.hypot(dx, dy);
+      const angle = Math.atan2(dy, dx);
+      const clamped = Math.min(JS_MAX, dist);
+
+      const sx = baseCenterCanvasX + Math.cos(angle) * clamped;
+      const sy = baseCenterCanvasY + Math.sin(angle) * clamped;
+
+      const relX = (sx - baseCenterCanvasX) / JS_MAX;
+      const relY = (sy - baseCenterCanvasY) / JS_MAX;
+      joystickVector = { x: relX, y: relY };
+
+      // Move stick visually (using same base left/bottom)
+      const offX = 80 + relX * JS_MAX;
+      const offY = 80 - relY * JS_MAX; // invert because bottom anchor
+      joystickStick.style.left = offX + 'px';
+      joystickStick.style.bottom = offY + 'px';
+    }
+
+    function handleJoyEnd(touch) {
+      if (joystickTouchId !== null && joystickTouchId === touch.identifier) {
+        joystickTouchId = null;
+        joystickVector = { x: 0, y: 0 };
+        resetStickVisual();
+      }
+    }
+
+    joystickArea.addEventListener('touchstart', e => {
+      e.preventDefault();
+      for (const t of e.changedTouches) {
+        if (joystickTouchId === null) {
+          handleJoyStart(t);
+          break;
+        }
+      }
+    }, { passive: false });
+
+    joystickArea.addEventListener('touchmove', e => {
+      e.preventDefault();
+      for (const t of e.changedTouches) handleJoyMove(t);
+    }, { passive: false });
+
+    joystickArea.addEventListener('touchend', e => {
+      e.preventDefault();
+      for (const t of e.changedTouches) handleJoyEnd(t);
+    }, { passive: false });
+
+    joystickArea.addEventListener('touchcancel', e => {
+      e.preventDefault();
+      for (const t of e.changedTouches) handleJoyEnd(t);
+    }, { passive: false });
+
+    // Dash
+    function tryDash() {
+      if (player.dashCooldownLeft <= 0 && player.dashTimeLeft <= 0) {
+        player.dashTimeLeft = player.dashDuration;
+        player.dashCooldownLeft = player.dashCooldown + player.dashDuration;
+      }
+    }
+    dashButton.addEventListener('touchstart', e => {
+      e.preventDefault();
+      tryDash();
+    }, { passive: false });
+    dashButton.addEventListener('mousedown', e => {
+      e.preventDefault();
+      tryDash();
+    });
+
+    // Start / restart
+    playButton.addEventListener('click', startGame);
+
+    function startGame() {
+      enemies = [];
+      player.x = W / 2;
+      player.y = H / 2;
+      timeAlive = 0;
+      spawnTimer = 0;
+      spawnInterval = 1.0;
+      player.dashTimeLeft = 0;
+      player.dashCooldownLeft = 0;
+      gameOver = false;
+      running = true;
+      centerMessage.textContent = '';
+      scoreEl.textContent = '0.0';
+      startScreen.style.display = 'none';
+      lastTime = performance.now();
+    }
+
+    function endGame() {
+      running = false;
+      gameOver = true;
+      if (timeAlive > bestScore) {
+        bestScore = timeAlive;
+        bestScoreEl.textContent = bestScore.toFixed(1);
+        bestScoreStartEl.textContent = bestScore.toFixed(1);
+        try { localStorage.setItem(BEST_KEY, String(bestScore)); } catch {}
+      }
+      centerMessage.textContent =
+        `Game Over!\nScore: ${timeAlive.toFixed(1)} s\nBest: ${bestScore.toFixed(1)} s\n\nPress Play or any key to restart`;
+      startScreen.style.display = 'flex';
+    }
+
+    // Enemies
+    function spawnEnemy() {
+      const side = Math.floor(Math.random() * 4);
+      let x, y;
+      if (side === 0) { x = Math.random() * W; y = -20; }
+      else if (side === 1) { x = W + 20; y = Math.random() * H; }
+      else if (side === 2) { x = Math.random() * W; y = H + 20; }
+      else { x = -20; y = Math.random() * H; }
+
+      const dx = player.x - x;
+      const dy = player.y - y;
+      const len = Math.hypot(dx, dy) || 1;
+      const dirX = dx / len;
+      const dirY = dy / len;
+
+      const baseSpeed = 80;
+      const extra = Math.min(200, timeAlive * 5);
+      const speed = baseSpeed + extra;
+
+      enemies.push({
+        x, y,
+        radius: 10,
+        vx: dirX * speed,
+        vy: dirY * speed,
+        color: '#f44'
+      });
+    }
+
+    // Update
+    function update(dt) {
+      if (!running) return;
+
+      // Movement: keyboard + joystick
+      let mx = 0, my = 0;
+      if (keys.ArrowUp || keys.w) my -= 1;
+      if (keys.ArrowDown || keys.s) my += 1;
+      if (keys.ArrowLeft || keys.a) mx -= 1;
+      if (keys.ArrowRight || keys.d) mx += 1;
+
+      // If joystick is in use, override
+      if (Math.abs(joystickVector.x) > 0.05 || Math.abs(joystickVector.y) > 0.05) {
+        mx = joystickVector.x;
+        my = -joystickVector.y; // invert because canvas Y-down vs joystick up
+      }
+
+      let len = Math.hypot(mx, my) || 1;
+      mx /= len; my /= len;
+
+      // Dash timers
+      if (player.dashCooldownLeft > 0) player.dashCooldownLeft -= dt;
+      if (player.dashTimeLeft > 0) player.dashTimeLeft -= dt;
+
+      const speed = player.baseSpeed * (player.dashTimeLeft > 0 ? player.dashMultiplier : 1);
+
+      player.x += mx * speed * dt;
+      player.y += my * speed * dt;
+
+      const pad = player.radius;
+      player.x = Math.max(pad, Math.min(W - pad, player.x));
+      player.y = Math.max(pad, Math.min(H - pad, player.y));
+
+      enemies.forEach(e => {
+        e.x += e.vx * dt;
+        e.y += e.vy * dt;
+      });
+
+      enemies = enemies.filter(e => e.x > -50 && e.x < W + 50 && e.y > -50 && e.y < H + 50);
+
+      spawnTimer += dt;
+      if (spawnTimer >= spawnInterval) {
+        spawnTimer -= spawnInterval;
+        spawnEnemy();
+        spawnInterval = Math.max(0.25, spawnInterval * 0.99);
+      }
+
+      for (const e of enemies) {
+        const dx = e.x - player.x;
+        const dy = e.y - player.y;
+        const dist = Math.hypot(dx, dy);
+        const hitDist = e.radius + player.radius * 0.8;
+        if (dist < hitDist) {
+          endGame();
+          break;
+        }
+      }
+
+      timeAlive += dt;
+      scoreEl.textContent = timeAlive.toFixed(1);
+    }
+
+    // Draw
+    function draw() {
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0, 0, W, H);
+
+      // Player
+      ctx.beginPath();
+      ctx.fillStyle = player.color;
+      ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Enemies
+      enemies.forEach(e => {
+        ctx.beginPath();
+        ctx.fillStyle = e.color;
+        ctx.arc(e.x, e.y, e.radius, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      ctx.strokeStyle = '#333';
+      ctx.lineWidth = 4;
+      ctx.strokeRect(2, 2, W - 4, H - 4);
+    }
+
+    // Loop
+    function loop(ts) {
+      const dt = (ts - lastTime) / 1000;
+      lastTime = ts;
+      if (running) update(dt);
+      draw();
+      requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
+  </script>
+</body>
+</html>
